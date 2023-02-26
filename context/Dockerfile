@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 AS nvidia-base
+FROM nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04 AS nvidia-base
 LABEL description="Anaconda 3 GPU Nvidia Container"
 
 # ARG ANACONDA_CONTAINER="v0.5.1"
@@ -324,15 +324,14 @@ RUN echo 'PATH="/usr/local/ffmpeg-nvidia/bin:$PATH"' >> ${HOME}/.bashrc
 USER root
 
 # Clean Anaconda
-# RUN conda clean -afy
+RUN conda clean -afy
 
 # Clean packages and caches
-# RUN apt-get --purge -y autoremove \
-#         wget \
-#     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* ${HOME}/FFmpeg* \
-#     && rm -rvf /home/${ANACONDA_PATH}/.cache/yarn
-
-RUN fix-permissions ${HOME} \
+RUN apt-get --purge -y autoremove \
+        wget \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* ${HOME}/FFmpeg* \
+    && rm -rvf /home/${ANACONDA_PATH}/.cache/yarn \
+    && fix-permissions ${HOME} \
     && fix-permissions ${ANACONDA_PATH}
 
 # Re-activate user "anaconda"
@@ -344,7 +343,7 @@ LABEL description="DeepFaceLab GPU Nvidia Container"
 
 ENV ANACONDA_ENV=deepfacelab
 ENV DEEPFACELAB_PATH=/usr/local/deepfacelab
-ENV DEEPFACELAB_PYTHON=python3.10
+ENV DEEPFACELAB_PYTHON=python3.7
 ENV DEEPFACELAB_HOME=${HOME}/deepfacelab
 ENV DEEPFACELAB_WORKSPACE=${DEEPFACELAB_PATH}/workspace
 ENV DEEPFACELAB_SCRIPTS=${DEEPFACELAB_PATH}/scripts
@@ -371,18 +370,18 @@ WORKDIR ${HOME}
 RUN conda update -c defaults conda
 
 # Create environment and install dependencies
-RUN conda create -c nvidia -n deepfacelab python=3.10 cudnn=8.4.1 cudatoolkit=11.8.0
+RUN conda create -c nvidia -n deepfacelab python=3.7 cudnn=8.4.0.27 cudatoolkit=11.6.0
 RUN conda run -n deepfacelab pip3 install \
     tqdm \
-    numpy==1.22.0 \
+    numpy==1.20 \
     numexpr \
-    h5py \
-    opencv-python \
-    ffmpeg-python \
-    scikit-image \
-    scipy \
+    h5py==2.10.0 \
+    opencv-python==4.1.0.25 \
+    ffmpeg-python==0.1.17 \
+    scikit-image==0.14.2 \
+    scipy==1.4.1 \
     colorama \
-    tensorflow \
+    tensorflow==2.11.0 \
     pyqt5 \
     && conda clean -afy
 
@@ -390,7 +389,7 @@ RUN conda run -n deepfacelab pip3 install \
 ARG CACHEBUST=1
 
 # Install rife from github repo
-RUN git clone https://github.com/valador/DeepFaceLab-source.git ${DEEPFACELAB_PATH} \
+RUN git clone https://github.com/iperov/DeepFaceLab.git ${DEEPFACELAB_PATH} \
     && mkdir -p ${DEEPFACELAB_WORKSPACE} \
     && rm -rvf ${ANACONDA_PATH}/share/jupyter/lab/staging
 
@@ -411,14 +410,14 @@ RUN conda clean -afy
 
 # Clean packages and caches
 RUN apt-get --purge -y autoremove git wget curl \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* ${HOME}/FFmpeg* \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* \
     && rm -rvf /home/${ANACONDA_PATH}/.cache/yarn \
     && fix-permissions ${HOME} \
     && fix-permissions ${ANACONDA_PATH}
 
-# # Configure container startup
-# ENTRYPOINT [ "tini", "-g", "--" ]
-# CMD [ "/bin/bash" ]
+# Configure container startup
+ENTRYPOINT [ "tini", "-g", "--" ]
+CMD [ "/bin/bash" ]
 
 # Re-activate user "anaconda"
 USER $ANACONDA_UID
