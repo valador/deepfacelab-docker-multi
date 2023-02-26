@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-export DFL_PYTHON="python3.10"
+export DFL_PYTHON="python3.7"
 export DFL_WORKSPACE="$DEEPFACELAB_WORKSPACE"
 export DFL_SRC="$DEEPFACELAB_PATH"
 
