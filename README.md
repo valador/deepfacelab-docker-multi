@@ -1,7 +1,7 @@
 # deepfacelab-docker-multi
 ## Prepare system
 1. install `docker`, `docker-compose`, `cudatoolkit` for you system and configure cudatoolkit to use Docker
-2. run on therminal `xhost +` to allow connect to X server (need due this after reboot, setting not store).
+2. run on host terminal `xhost +` to allow connect to X server (need due this after reboot, setting not store).
 ### Arch linux
 1. nvidia-container-toolkit-1.12.0 from AUR not work, need use nvidia-container-toolkit-v1.13.0-rc.1 clone git repo from AUR and edit self or wait update. 
 2. clone repo and edit `https://aur.archlinux.org/nvidia-container-toolkit.git`
