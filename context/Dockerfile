@@ -14,25 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04 AS nvidia-base
-LABEL description="Anaconda 3 GPU Nvidia Container"
+FROM nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04
+LABEL description="DeepFaceLab GPU Nvidia Container"
 
-# ARG ANACONDA_CONTAINER="v0.5.1"
-# ARG ANACONDA_DIST="Miniconda3"
-# ARG ANACONDA_PYTHON="pypy39"
-ARG ANACONDA_OS="Linux"
-ARG ANACONDA_ARCH="x86_64"
-ARG ANACONDA_FLAVOR="Miniforge3"
-ARG ANACONDA_CONDA="22.11.1"
-ARG ANACONDA_PATCH="4"
-ARG ANACONDA_VERSION="${ANACONDA_CONDA}-${ANACONDA_PATCH}"
-ARG ANACONDA_INSTALLER="${ANACONDA_FLAVOR}-${ANACONDA_VERSION}-${ANACONDA_OS}-${ANACONDA_ARCH}.sh"
-ARG ANACONDA_ENV="base"
-ARG ANACONDA_GID="100"
-ARG ANACONDA_PATH="/usr/local/anaconda3"
-ARG ANACONDA_UID="1000"
-ARG ANACONDA_USER="anaconda"
-
+ARG LAB_GID="100"
+ARG LAB_UID="1000"
+ARG LAB_USER="lab"
+ARG FFMPEG_VERSION="5.1.2"
+ARG TINI_VERSION="v0.19.0"
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 USER root
@@ -40,6 +29,15 @@ USER root
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+ENV TINI_VERSION=${TINI_VERSION}
+ENV FFMPEG_VERSION="${FFMPEG_VERSION}"
+ENV DEEPFACELAB_PATH=/usr/local/deepfacelab
+ENV DEEPFACELAB_PYTHON=python3.7
+ENV DEEPFACELAB_HOME=${HOME}/deepfacelab
+ENV DEEPFACELAB_WORKSPACE=${DEEPFACELAB_PATH}/workspace
+ENV DEEPFACELAB_SCRIPTS=${DEEPFACELAB_PATH}/scripts
+
+# ENV DFL_PYTHON=python3.7 DFL_ROOT=/app
 
 # Update packages
 RUN apt-get update --fix-missing \
@@ -47,109 +45,61 @@ RUN apt-get update --fix-missing \
     && apt-get -y dist-upgrade
 
 # Install dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+RUN apt-get install -y --no-install-recommends \
     bzip2 \
     ca-certificates \
     curl \
     locales \
     sudo \
-    wget
+    wget \
+    git \
+    libglu1-mesa-dev \
+#    python3.7 \
+    python3-distutils \
+    python3-pyqt5
+
+# Setup deadsnakes ppa for multiple python versions
+RUN deadsnakes_list="/etc/apt/sources.list.d/deadsnakes.list"; \
+    printf 'deb http://ppa.launchpad.net/deadsnakes/ppa/ubuntu focal main\n' >> $deadsnakes_list \
+    && printf 'deb-src http://ppa.launchpad.net/deadsnakes/ppa/ubuntu focal main\n' >> $deadsnakes_list \
+    && gpg --keyserver keyserver.ubuntu.com --recv-keys 6A755776 \
+    && gpg --export 6A755776 | apt-key add - \
+    && apt-get update
+RUN apt-get install -y --no-install-recommends \
+    python3.7 \
+    python3.7-distutils
 
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
     && locale-gen
 
-# Configure environment
-ENV ANACONDA_ENV=${ANACONDA_ENV} \
-    ANACONDA_PATH=${ANACONDA_PATH} \
-    ANACONDA_GID=${ANACONDA_GID} \
-    ANACONDA_UID=${ANACONDA_UID} \
-    ANACONDA_USER=${ANACONDA_USER} \
-    HOME=/home/${ANACONDA_USER} \
+ENV LAB_GID=${LAB_GID} \
+    LAB_UID=${LAB_UID} \
+    LAB_USER=${LAB_USER} \
+    HOME=/home/${LAB_USER} \
     LANG=en_US.UTF-8 \
     LANGUAGE=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8 \
     SHELL=/bin/bash
 
-ENV PATH ${ANACONDA_PATH}/bin:${PATH}
 
 # Enable prompt color, generally
 RUN sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashrc
 
 # Copy fix-permissions script
-COPY ./scripts-anaconda/fix-permissions /usr/local/bin/fix-permissions
+COPY ./helpers/fix-permissions /usr/local/bin/fix-permissions
 
-# Create default user wtih name "anaconda"
+# Create default user wtih name "lab"
 RUN echo "auth requisite pam_deny.so" >> /etc/pam.d/su \
     && sed -i.bak -e 's/^%admin/#%admin/' /etc/sudoers \
     && sed -i.bak -e 's/^%sudo/#%sudo/' /etc/sudoers \
-    && useradd -m -s /bin/bash -N -u ${ANACONDA_UID} ${ANACONDA_USER} \
-    && mkdir -p ${ANACONDA_PATH} \
-    && chown -R ${ANACONDA_USER}:${ANACONDA_GID} ${ANACONDA_PATH} \
+    && useradd -m -s /bin/bash -N -u ${LAB_UID} ${LAB_USER} \
     && chmod g+w /etc/passwd \
     && chmod a+rx /usr/local/bin/fix-permissions \
-    && fix-permissions ${HOME} \
-    && fix-permissions ${ANACONDA_PATH}
-
-# Switch to user "anaconda"
-USER ${ANACONDA_UID}
-WORKDIR ${HOME}
-
-# Install Anaconda (Miniconda) - https://anaconda.com/
-RUN wget --verbose -O ~/${ANACONDA_VERSION}.sh https://github.com/conda-forge/miniforge/releases/download/${ANACONDA_VERSION}/${ANACONDA_INSTALLER} \
-    && /bin/bash /home/${ANACONDA_USER}/${ANACONDA_VERSION}.sh -b -u -p ${ANACONDA_PATH} \
-    && chown -R ${ANACONDA_USER} ${ANACONDA_PATH} \
-    && rm -rvf ~/${ANACONDA_VERSION}.sh \
-    && echo ". ${ANACONDA_PATH}/etc/profile.d/conda.sh" >> ~/.bashrc \
-    && echo "conda activate \${ANACONDA_ENV}" >> ~/.bashrc \
-    && find ${ANACONDA_PATH} -follow -type f -name '*.a' -delete \
-    && find ${ANACONDA_PATH} -follow -type f -name '*.js.map' -delete \
-    && fix-permissions ${HOME} \
-    && fix-permissions ${ANACONDA_PATH}
-
-# Update Anaconda
-RUN conda update -c defaults conda
-
-# Activate conda-forge
-RUN conda config --add channels conda-forge
+    && fix-permissions ${HOME}
 
 # Install Tini
-RUN conda install -y tini
-
-# Switch back to root
-USER root
-
-# Clean Anaconda
-RUN conda clean -afy \
-    && fix-permissions ${HOME} \
-    && fix-permissions ${ANACONDA_PATH}
-
-# Make configuration adjustments in /etc
-RUN ln -s ${ANACONDA_PATH}/etc/profile.d/conda.sh /etc/profile.d/conda.sh \
-    && fix-permissions /etc/profile.d/conda.sh
-
-# Clean packages and caches
-# RUN apt-get --purge -y remove wget curl \
-#     && apt-get --purge -y autoremove \
-#     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* \
-#     && rm -rvf /home/${ANACONDA_PATH}/.cache/yarn
-
-# Configure container startup
-ENTRYPOINT [ "tini", "-g", "--" ]
-CMD [ "/bin/bash" ]
-
-# Re-activate user "anaconda"
-USER $ANACONDA_UID
-WORKDIR $HOME
-#------------------------------------------------------------------------------------------------------------------------------------------------
-FROM nvidia-base AS ffmpeg-nvidia-base
-LABEL description="FFmpeg GPU Nvidia Container"
-
-ARG FFMPEG_VERSION="5.1.2"
-ENV FFMPEG_VERSION="${FFMPEG_VERSION}"
-
-# Start as root
-USER root
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+RUN chmod +x /tini
 
 # Install dependencies
 RUN apt-get update \
@@ -240,7 +190,7 @@ RUN apt-get update \
     zlib1g-dev
 
 # Switch to user "anaconda"
-USER ${ANACONDA_UID}
+USER ${LAB_UID}
 WORKDIR ${HOME}
 
 # Build ffmpeg
@@ -312,66 +262,19 @@ USER root
 RUN cd ${HOME}/ffmpeg-${FFMPEG_VERSION} \
     && make install
 
-USER $ANACONDA_UID
-
-# Clean build files
-RUN cd ${HOME} \
-    && rm -rvf ${HOME}/ffmpeg-${FFMPEG_VERSION}.tar.gz ${HOME}/ffmpeg-${FFMPEG_VERSION}
-
-RUN echo 'PATH="/usr/local/ffmpeg-nvidia/bin:$PATH"' >> ${HOME}/.bashrc
-
-# Switch back to root
-USER root
-
-# Clean Anaconda
-RUN conda clean -afy
-
-# Clean packages and caches
-RUN apt-get --purge -y autoremove \
-        wget \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* ${HOME}/FFmpeg* \
-    && rm -rvf /home/${ANACONDA_PATH}/.cache/yarn \
-    && fix-permissions ${HOME} \
-    && fix-permissions ${ANACONDA_PATH}
-
-# Re-activate user "anaconda"
-USER $ANACONDA_UID
-WORKDIR $HOME
-#------------------------------------------------------------------------------------------------------------------------------------------------
-FROM ffmpeg-nvidia-base AS deepfacelab-nvidia
-LABEL description="DeepFaceLab GPU Nvidia Container"
-
-ENV ANACONDA_ENV=deepfacelab
-ENV DEEPFACELAB_PATH=/usr/local/deepfacelab
-ENV DEEPFACELAB_PYTHON=python3.7
-ENV DEEPFACELAB_HOME=${HOME}/deepfacelab
-ENV DEEPFACELAB_WORKSPACE=${DEEPFACELAB_PATH}/workspace
-ENV DEEPFACELAB_SCRIPTS=${DEEPFACELAB_PATH}/scripts
-
-# Start as root
-USER root
-
-# Install dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends  \
-    git \
-    libglu1-mesa-dev \
-    nano
-
 # Create DeepFaceLab directory
 RUN mkdir -p ${DEEPFACELAB_PATH} \
     && fix-permissions ${DEEPFACELAB_PATH}
 
-# Switch to user "anaconda"
-USER ${ANACONDA_UID}
-WORKDIR ${HOME}
+USER ${LAB_UID}
 
-# Update Anaconda
-RUN conda update -c defaults conda
+# RUN echo 'PATH="${HOME}/.local/bin:$PATH"' >> ${HOME}/.bashrc
+ENV PATH=${HOME}/.local/bin:$PATH
 
-# Create environment and install dependencies
-RUN conda create -c nvidia -n deepfacelab python=3.7 cudnn=8.4.0.27 cudatoolkit=11.6.0
-RUN conda run -n deepfacelab pip3 install \
+RUN python3.7 -c "from urllib.request import urlopen; \
+    exec(urlopen('https://bootstrap.pypa.io/get-pip.py').read())"
+
+RUN python3.7 -m pip install \
     tqdm \
     numpy==1.20 \
     numexpr \
@@ -382,21 +285,25 @@ RUN conda run -n deepfacelab pip3 install \
     scipy==1.4.1 \
     colorama \
     tensorflow==2.11.0 \
-    pyqt5 \
-    && conda clean -afy
+    pyqt5
+
+
+# Clean build files
+RUN cd ${HOME} \
+    && rm -rvf ${HOME}/ffmpeg-${FFMPEG_VERSION}.tar.gz ${HOME}/ffmpeg-${FFMPEG_VERSION}
+
+RUN echo 'PATH="/usr/local/ffmpeg-nvidia/bin:$PATH"' >> ${HOME}/.bashrc
 
 # Custom cache invalidation
 ARG CACHEBUST=1
 
 # Install rife from github repo
 RUN git clone https://github.com/iperov/DeepFaceLab.git ${DEEPFACELAB_PATH} \
-    && mkdir -p ${DEEPFACELAB_WORKSPACE} \
-    && rm -rvf ${ANACONDA_PATH}/share/jupyter/lab/staging
+    && mkdir -p ${DEEPFACELAB_WORKSPACE}
 
 # Copy scripts
 COPY ./scripts ${DEEPFACELAB_PATH}/scripts
 
-# Switch back to root
 USER root
 
 RUN fix-permissions ${DEEPFACELAB_WORKSPACE} \
@@ -405,20 +312,16 @@ RUN fix-permissions ${DEEPFACELAB_WORKSPACE} \
     && ln -s ${DEEPFACELAB_WORKSPACE} ${HOME}/workspace \
     && ln -s ${DEEPFACELAB_SCRIPTS} ${HOME}/scripts
 
-# Clean Anaconda
-RUN conda clean -afy
-
 # Clean packages and caches
-RUN apt-get --purge -y autoremove git wget curl \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* \
-    && rm -rvf /home/${ANACONDA_PATH}/.cache/yarn \
-    && fix-permissions ${HOME} \
-    && fix-permissions ${ANACONDA_PATH}
+RUN apt-get --purge -y remove wget curl git \
+    && apt-get --purge -y autoremove \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* ${HOME}/FFmpeg* \
+    && fix-permissions ${HOME}
 
 # Configure container startup
-ENTRYPOINT [ "tini", "-g", "--" ]
-CMD [ "/bin/bash" ]
+# ENTRYPOINT [ "tini", "-g", "--" ]
+# CMD [ "/bin/bash" ]
 
 # Re-activate user "anaconda"
-USER $ANACONDA_UID
+USER $LAB_UID
 WORKDIR $HOME

@@ -10,7 +10,7 @@ help:
 ## build image
 .PHONY: build-deepfacelab-nvidia
 build-deepfacelab-nvidia:
-	docker build -t slayerus/deepfacelab:nvidia-1.0 --target deepfacelab-nvidia -f ./context/Dockerfile ./context/.
+	docker build -t slayerus/deepfacelab:nvidiamulti-1.0 -f ./context/Dockerfile ./context/.
 #	docker build -t slayerus/deepfacelab:nvidia-1.0 --target deepfacelab-nvidia --build-arg CACHEBUST=${DATETIME} -f ./context/Dockerfile ./context/.
 #	docker push slayerus/deepfacelab:nvidia-1.0
 .PHONY: clean

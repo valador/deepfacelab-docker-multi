@@ -3,7 +3,7 @@ services:
   deepfacelab:
     hostname: deepfacelab
     container_name: deepfacelab
-    image: slayerus/deepfacelab:nvidia-1.0
+    image: slayerus/deepfacelab:nvidiamulti-1.0
     volumes:
       - "./workspace:/usr/local/deepfacelab/workspace:rw"
       - "/tmp/.X11-unix:/tmp/.X11-unix"
@@ -15,5 +15,7 @@ services:
       resources:
         reservations:
           devices:
-            - capabilities: [gpu]
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     command: bash
