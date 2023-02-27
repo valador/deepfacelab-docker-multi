@@ -12,7 +12,7 @@ help:
 build-deepfacelab-nvidia:
 	docker build -t slayerus/deepfacelab:nvidiamulti-1.0 -f ./context/Dockerfile ./context/.
 #	docker build -t slayerus/deepfacelab:nvidia-1.0 --target deepfacelab-nvidia --build-arg CACHEBUST=${DATETIME} -f ./context/Dockerfile ./context/.
-#	docker push slayerus/deepfacelab:nvidia-1.0
+	docker push slayerus/deepfacelab:nvidia-1.0
 .PHONY: clean
 clean:
 	docker-compose -f docker-compose.yml down --volumes --rmi all --remove-orphans
@@ -24,20 +24,9 @@ purge-deepfacelab-nvidia:
 	docker-compose -f docker-compose.yml down --volumes --rmi all --remove-orphans
 	docker-compose -f docker-compose.yml rm -v --force
 	yes | docker system prune --all --volumes --force
-#Operate
-# .PHONY: up-deepfacelab-nvidia
-# up-deepfacelab-nvidia:
-# 	docker-compose -f docker-compose.yml up $(c)
-
-# .PHONY: start-deepfacelab-nvidia
-# start-deepfacelab-nvidia:
-# 	docker-compose -f docker-compose.yml start $(c)
 .PHONY: run-deepfacelab-nvidia
 run-deepfacelab-nvidia:
 	docker-compose run deepfacelab
-.PHONY: destroy
-destroy:
-	docker-compose -f docker-compose.yml -f docker-compose.yml down -v $(c)
 .PHONY: ps
 ps:
 	docker ps --format \
