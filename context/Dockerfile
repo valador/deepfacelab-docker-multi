@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
 LABEL description="DeepFaceLab GPU Nvidia Container"
 
 ARG LAB_GID="100"
