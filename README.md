@@ -83,3 +83,4 @@ in cloned repo:
 ## Other
 1. Not used Conda or other stuff like virtualenv
 2. In Linux use only 5GB ram... why? I have 16gb ram and no pagefile, all work. In Windows 10 - 16 gb ram too low, need 32gb pagefile.
+3. Without conda - more stable and no crash system
