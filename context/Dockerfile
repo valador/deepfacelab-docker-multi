@@ -319,8 +319,8 @@ RUN apt-get --purge -y remove wget curl git \
     && fix-permissions ${HOME}
 
 # Configure container startup
-# ENTRYPOINT [ "tini", "-g", "--" ]
-# CMD [ "/bin/bash" ]
+ENTRYPOINT [ "/tini", "-g", "--" ]
+CMD [ "/bin/bash" ]
 
 # Re-activate user "anaconda"
 USER $LAB_UID
