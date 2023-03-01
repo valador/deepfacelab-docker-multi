@@ -72,13 +72,13 @@ in cloned repo:
 1. `makepkg`
 2. `sudo pacman -U nvidia-container-toolkit-1.13.0-1-x86_64.pkg.tar.zst`
 ## Build
-1. `make build-deepfacelab-nvidia`
+1. `make build`
 ## Prepare workspace
 1. create folder `workspace` in project folder and copy you `data_dst` `data_src` `model` ant other stuff
 ## Launch
-1. `make run-deepfacelab-nvidia`
+1. `make run`
 ## Work
-1. `cd scripts` and `ls -la` for list, use anything you want like `./6_train_SAEHD.sh`
+1. `cd scripts` and `ls -la` for list, use anything you want, like `./6_train_SAEHD.sh`
 
 ## Other
 1. Not used Conda or other stuff like virtualenv

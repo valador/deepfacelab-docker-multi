@@ -11,7 +11,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 LABEL description="DeepFaceLab GPU Nvidia Container"
 
 ARG LAB_GID="100"
@@ -54,8 +54,8 @@ RUN apt-get install -y --no-install-recommends \
 
 # Setup deadsnakes ppa for multiple python versions
 RUN deadsnakes_list="/etc/apt/sources.list.d/deadsnakes.list"; \
-    printf 'deb http://ppa.launchpad.net/deadsnakes/ppa/ubuntu focal main\n' >> $deadsnakes_list \
-    && printf 'deb-src http://ppa.launchpad.net/deadsnakes/ppa/ubuntu focal main\n' >> $deadsnakes_list \
+    printf 'deb http://ppa.launchpad.net/deadsnakes/ppa/ubuntu jammy main\n' >> $deadsnakes_list \
+    && printf 'deb-src http://ppa.launchpad.net/deadsnakes/ppa/ubuntu jammy main\n' >> $deadsnakes_list \
     && gpg --keyserver keyserver.ubuntu.com --recv-keys 6A755776 \
     && gpg --export 6A755776 | apt-key add - \
     && apt-get update
