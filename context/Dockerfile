@@ -1,6 +1,3 @@
-# Anaconda / Miniconda 3 Dockerfile for Anaconda with TensorFlow stack
-# Copyright (C) 2020-2022  Chelsea E. Manning
-#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -37,8 +34,6 @@ ENV DEEPFACELAB_HOME=${HOME}/deepfacelab
 ENV DEEPFACELAB_WORKSPACE=${DEEPFACELAB_PATH}/workspace
 ENV DEEPFACELAB_SCRIPTS=${DEEPFACELAB_PATH}/scripts
 
-# ENV DFL_PYTHON=python3.7 DFL_ROOT=/app
-
 # Update packages
 RUN apt-get update --fix-missing \
     && apt-get -y upgrade \
@@ -54,7 +49,6 @@ RUN apt-get install -y --no-install-recommends \
     wget \
     git \
     libglu1-mesa-dev \
-#    python3.7 \
     python3-distutils \
     python3-pyqt5
 
@@ -68,6 +62,9 @@ RUN deadsnakes_list="/etc/apt/sources.list.d/deadsnakes.list"; \
 RUN apt-get install -y --no-install-recommends \
     python3.7 \
     python3.7-distutils
+# ffmpeg5
+#RUN add-apt-repository ppa:savoury1/ffmpeg5 && add-apt-repository ppa:savoury1/ffmpeg4
+#apt-get install ffmpeg
 
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
     && locale-gen
@@ -85,17 +82,13 @@ ENV LAB_GID=${LAB_GID} \
 # Enable prompt color, generally
 RUN sed -i 's/^#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashrc
 
-# Copy fix-permissions script
-COPY ./helpers/fix-permissions /usr/local/bin/fix-permissions
-
 # Create default user wtih name "lab"
 RUN echo "auth requisite pam_deny.so" >> /etc/pam.d/su \
     && sed -i.bak -e 's/^%admin/#%admin/' /etc/sudoers \
     && sed -i.bak -e 's/^%sudo/#%sudo/' /etc/sudoers \
     && useradd -m -s /bin/bash -N -u ${LAB_UID} ${LAB_USER} \
     && chmod g+w /etc/passwd \
-    && chmod a+rx /usr/local/bin/fix-permissions \
-    && fix-permissions ${HOME}
+    && chown -R ${LAB_UID}:${LAB_GID} ${HOME}
 
 # Install Tini
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
@@ -189,7 +182,7 @@ RUN apt-get update \
     wget \
     zlib1g-dev
 
-# Switch to user "anaconda"
+# Switch to user "lab"
 USER ${LAB_UID}
 WORKDIR ${HOME}
 
@@ -264,11 +257,10 @@ RUN cd ${HOME}/ffmpeg-${FFMPEG_VERSION} \
 
 # Create DeepFaceLab directory
 RUN mkdir -p ${DEEPFACELAB_PATH} \
-    && fix-permissions ${DEEPFACELAB_PATH}
+    && chown -R ${LAB_UID}:${LAB_GID} ${DEEPFACELAB_PATH}
 
 USER ${LAB_UID}
 
-# RUN echo 'PATH="${HOME}/.local/bin:$PATH"' >> ${HOME}/.bashrc
 ENV PATH=${HOME}/.local/bin:$PATH
 
 RUN python3.7 -c "from urllib.request import urlopen; \
@@ -287,7 +279,6 @@ RUN python3.7 -m pip install \
     tensorflow==2.11.0 \
     pyqt5
 
-
 # Clean build files
 RUN cd ${HOME} \
     && rm -rvf ${HOME}/ffmpeg-${FFMPEG_VERSION}.tar.gz ${HOME}/ffmpeg-${FFMPEG_VERSION}
@@ -302,12 +293,12 @@ RUN git clone https://github.com/iperov/DeepFaceLab.git ${DEEPFACELAB_PATH} \
     && mkdir -p ${DEEPFACELAB_WORKSPACE}
 
 # Copy scripts
-COPY ./scripts ${DEEPFACELAB_PATH}/scripts
+COPY ./scripts ${DEEPFACELAB_SCRIPTS}
 
 USER root
 
-RUN fix-permissions ${DEEPFACELAB_WORKSPACE} \
-    && fix-permissions ${DEEPFACELAB_SCRIPTS} \
+RUN chown ${LAB_UID}:${LAB_GID} ${DEEPFACELAB_WORKSPACE} \
+    && chown ${LAB_UID}:${LAB_GID} ${DEEPFACELAB_SCRIPTS} \
     && chmod +x ${DEEPFACELAB_SCRIPTS}/*.sh \
     && ln -s ${DEEPFACELAB_WORKSPACE} ${HOME}/workspace \
     && ln -s ${DEEPFACELAB_SCRIPTS} ${HOME}/scripts
@@ -316,12 +307,12 @@ RUN fix-permissions ${DEEPFACELAB_WORKSPACE} \
 RUN apt-get --purge -y remove wget curl git \
     && apt-get --purge -y autoremove \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* ${HOME}/FFmpeg* \
-    && fix-permissions ${HOME}
+    && chown ${LAB_UID}:${LAB_GID} ${HOME}
 
 # Configure container startup
 ENTRYPOINT [ "/tini", "-g", "--" ]
 CMD [ "/bin/bash" ]
 
-# Re-activate user "anaconda"
+# Re-activate user "lab"
 USER $LAB_UID
 WORKDIR $HOME
